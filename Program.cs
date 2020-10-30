@@ -1,12 +1,15 @@
-﻿using Microsoft.Win32;
+﻿using ExifLib;
+using Microsoft.Win32;
 using System;
-using System.Diagnostics;
 using System.IO;
 
 namespace PhotoMap
 {
     class Program
     {
+        static private string filePath; // получаемый путь к файлу из контекстного меню
+        static private string north, east; // северная широта и восточная долгота
+
         static void Main(string[] args)
         {
             // если запуск приложения без аргументов (с ярлыка) то запись в реестр добавление контекстного меню
@@ -18,21 +21,33 @@ namespace PhotoMap
             else
             {
                 checkArgs(args);
-            testFileRec(args);
+                geoTags();
             }
         }
 
-        //запись аргументов в файл на рабочем столе
-        private static void testFileRec(string[] args)
+        // получение гео тегов из файла
+        static void geoTags()
         {
-            string filePath = @"D:\rabstol\logger.txt";
-            string s = String.Join(" ", args);  
-            
-            using (StreamWriter sw = new StreamWriter(filePath))
+            ExifReader meta = new ExifReader(filePath);
+
+            double[] latitudeComponents;
+            double[] longitudeComponents;
+
+            string latitudeRef; // "N" or "S" ("S" will be negative latitude)
+            string longitudeRef; // "E" or "W" ("W" will be a negative longitude)
+
+            if (meta.GetTagValue(ExifTags.GPSLatitude, out latitudeComponents)
+           && meta.GetTagValue(ExifTags.GPSLongitude, out longitudeComponents)
+           && meta.GetTagValue(ExifTags.GPSLatitudeRef, out latitudeRef)
+           && meta.GetTagValue(ExifTags.GPSLongitudeRef, out longitudeRef))
             {
-                    sw.Write(s);
-                foreach (var item in args)
+                using (StreamWriter fileCoord = new StreamWriter(@"D:\rabstol\coords.txt"))
                 {
+                    for (int i = 0; i < latitudeComponents.Length; i++)
+                    {
+                        fileCoord.WriteLine(latitudeComponents[i]); 
+
+                    }
                 }
             }
         }
@@ -49,18 +64,24 @@ namespace PhotoMap
             {
                 contextReg.SetValue("MUIVerb", "Посмотреть на карте");
                 contextReg.SetValue("icon", pathApp);
-                contextReg.SetValue
             }
-            //using (RegistryKey comReg = Registry.ClassesRoot.CreateSubKey(command, true))
-            //{
-            //    comReg.SetValue("(По умолчанию)", "\"" + pathApp + "\" %1");
-            //}
+            using (RegistryKey comReg = Registry.ClassesRoot.CreateSubKey(command, true))
+            {
+                comReg.SetValue("", "\"" + pathApp + "\" %1");
+            }
         }
 
-        // обработка аргументов
-        static void checkArgs(string[] coords)
+        // получение адреса файла
+        static void checkArgs(string[] file)
         {
+            string logger = @"D:\rabstol\logger.txt";
+            filePath = String.Join(" ", file);
 
+            //запись аргументов в файл на рабочем столе - удалить-------------------
+            using (StreamWriter sw = new StreamWriter(logger))
+            {
+                sw.Write(filePath);
+            }
         }
     }
 }
